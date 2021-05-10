@@ -6,6 +6,7 @@ import cv2
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
+import numpy as np
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -14,8 +15,10 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+from utils.intersection import is_draw
 
-def detect():
+
+def detect_face():
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
     save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
@@ -102,7 +105,23 @@ def detect():
 
                 # Write results
                 # TODO : 重複は除く
-                for *xyxy, conf, cls in reversed(det):
+                bounding_boxes = np.zeros((len(det), 4))
+                scores = np.zeros(len(det))
+                classes = np.zeros(len(det))
+                for j, (*xyxy, conf, cls) in enumerate(reversed(det)):
+                    print("-----------------------")
+                    bounding_boxes[j] = np.array([temp.item() for temp in xyxy])
+                    scores[i] = conf.item()
+                    classes[i] = cls.item()
+
+                n_human = 0
+                for j, (*xyxy, conf, cls) in enumerate(reversed(det)):
+
+                    if not is_draw(bounding_boxes, scores, j):
+                        break
+                    else:
+                        n_human += 1
+
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -116,13 +135,18 @@ def detect():
                         if opt.save_crop:
                             save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
+                label = "humans : " + str(n_human)
+                pos = 30
+                xyxy = [torch.tensor(0), torch.tensor(pos), torch.tensor(0), torch.tensor(pos)]
+                plot_one_box(xyxy, im0, label=label, color=colors[-1], line_thickness=4)
+
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
 
             # Stream results
             if view_img:
                 cv2.imshow(str(p), im0)
-                cv2.waitKey(1)  # 1 millisecond
+                cv2.waitKey(1)
 
             # Save results (image with detections)
             if save_img:
@@ -153,7 +177,7 @@ def detect():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', nargs='+', type=str, default='yolov5s.pt', help='model.pt path(s)')
-    parser.add_argument('--source', type=str, default='data/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='0', help='source')  # file/folder, 0 for webcam
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.25, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
@@ -177,7 +201,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         if opt.update:  # update all models (to fix SourceChangeWarning)
             for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
-                detect()
+                detect_face()
                 strip_optimizer(opt.weights)
         else:
-            detect()
+            detect_face()
