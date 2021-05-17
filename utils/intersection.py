@@ -45,7 +45,7 @@ def is_draw(bounding_boxes, scores, index):
     return True
 
 
-def is_same_person(det, det_arr, thresh=0.8):
+def is_same_person(det, det_arr, thresh=0.1):
     """
     検出されたものが前フレームと同じかiouベースで判断を行う
     det : 今のフレームの検出結果 (numpy)
@@ -68,3 +68,21 @@ def is_same_person(det, det_arr, thresh=0.8):
 
     return -1
 
+
+# ['mask_weared_incorrect', 'with_mask', 'without_mask']
+def is_warning(class_arr: list, thresh: float):
+    counting = 0
+    is_warnings = []
+    for i in range(len(class_arr)):
+        # print(class_arr)
+        ratio_with_mask = class_arr[i].count(1) / len(class_arr[i])
+        # print(class_arr[i].count(0), class_arr[i].count(1), class_arr[i].count(2))
+        # print(len(class_arr[i]))
+        print(ratio_with_mask)
+        if ratio_with_mask < thresh:
+            is_warnings.append(True)
+            counting += 1
+        else:
+            is_warnings.append(False)
+
+    return counting

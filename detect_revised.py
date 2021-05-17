@@ -15,7 +15,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-from utils.intersection import is_draw, is_same_person
+from utils.intersection import is_draw, is_same_person, is_warning
 
 warming_period = 10
 
@@ -59,6 +59,7 @@ def detect_face():
 
     # Get names and colors
     names = model.module.names if hasattr(model, 'module') else model.names
+    print(names)
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
 
     # Run inference
@@ -68,7 +69,9 @@ def detect_face():
     t0_cp = t0
 
     det_arr = [[]]
-    score_arr = [[]]
+    class_arr = [[]]
+    is_warnings = 0
+
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -128,21 +131,20 @@ def detect_face():
 
                     # 1回目のdetectionの時, そのまま追加
                     if len(det_arr[0]) == 0:
-                        print("-------------empty----------------")
                         det_arr[0].append(bounding_boxes[j])
-                        score_arr[0].append(scores[j])
+                        class_arr[0].append(int(classes[j]))
                     # 2回目以降 :
                     else:
-                        det_id = is_same_person(bounding_boxes[j], det_arr, thresh=0.8)
+                        det_id = is_same_person(bounding_boxes[j], det_arr, thresh=0.1)
                         if det_id == -1:
                             det_arr.append([])
                             det_arr[-1].append(bounding_boxes[j])
-                            score_arr.append([])
-                            score_arr[-1].append(scores[j])
+                            class_arr.append([])
+                            class_arr[-1].append(scores[j])
                         # 前フレームと被っている←同じ物体だと判断する
                         else:
                             det_arr[det_id].append(bounding_boxes[j])
-                            score_arr[det_id].append(scores[j])
+                            class_arr[det_id].append(int(classes[j]))
 
                     n_human += 1
                     if save_txt:  # Write to file
@@ -158,22 +160,24 @@ def detect_face():
                         if opt.save_crop:
                             save_one_box(xyxy, im0s, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
-                label = "humans : " + str(n_human)
-                pos = 30
-                xyxy = [torch.tensor(0), torch.tensor(pos), torch.tensor(0), torch.tensor(pos)]
-                plot_one_box(xyxy, im0, label=label, color=colors[-1], line_thickness=4)
-
             # Print time (inference + NMS)
-            print(f'{s}Done. ({t2 - t1:.3f}s)')
-            fps = int(1/(t2-t1))
+            # print(f'{s}Done. ({t2 - t1:.3f}s)')
+
 
             if time.time() - t0_cp > warming_period:
                 t0_cp = time.time()
+                is_warnings = is_warning(class_arr=class_arr, thresh=0.2)
+
                 det_arr.clear()
                 det_arr = [[]]
-                score_arr.clear()
-                score_arr = [[]]
-                print("10s")
+                class_arr.clear()
+                class_arr = [[]]
+                print("10s elapsed/", "警告対象 : "+str(is_warnings))
+
+            label = "humans : " + str(n_human) + "/maskshiro : " + str(is_warnings)
+            pos = 30
+            xyxy = [torch.tensor(0), torch.tensor(pos), torch.tensor(0), torch.tensor(pos)]
+            plot_one_box(xyxy, im0, label=label, color=colors[-1], line_thickness=4)
 
             # Stream results
             if view_img:
