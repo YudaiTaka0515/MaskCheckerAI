@@ -17,6 +17,8 @@ from utils.torch_utils import select_device, load_classifier, time_synchronized
 
 from utils.intersection import is_draw, is_same_person
 
+warming_period = 10
+
 
 def detect_face():
     source, weights, view_img, save_txt, imgsz = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
@@ -63,6 +65,7 @@ def detect_face():
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
+    t0_cp = t0
 
     det_arr = [[]]
     score_arr = [[]]
@@ -125,7 +128,7 @@ def detect_face():
 
                     # 1回目のdetectionの時, そのまま追加
                     if len(det_arr[0]) == 0:
-
+                        print("-------------empty----------------")
                         det_arr[0].append(bounding_boxes[j])
                         score_arr[0].append(scores[j])
                     # 2回目以降 :
@@ -142,7 +145,6 @@ def detect_face():
                             score_arr[det_id].append(scores[j])
 
                     n_human += 1
-
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -165,9 +167,12 @@ def detect_face():
             print(f'{s}Done. ({t2 - t1:.3f}s)')
             fps = int(1/(t2-t1))
 
-            if i % (fps * 10) == 0 and i > (fps * 10):
-                print("---------------------------")
-                print(i, fps)
+            if time.time() - t0_cp > warming_period:
+                t0_cp = time.time()
+                det_arr.clear()
+                det_arr = [[]]
+                score_arr.clear()
+                score_arr = [[]]
                 print("10s")
 
             # Stream results
