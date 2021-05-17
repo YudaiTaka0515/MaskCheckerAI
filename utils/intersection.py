@@ -43,3 +43,26 @@ def is_draw(bounding_boxes, scores, index):
             return False
 
     return True
+
+
+def is_same_person(det, det_arr, thresh=0.8):
+    """
+    検出されたものが前フレームと同じかiouベースで判断を行う
+    det : 今のフレームの検出結果 (numpy)
+    det_arr : 今までの検出結果 (リスト)
+    thresh : 同じ物体だと
+    return : 新物体→-1 or 物体のID
+    """
+    # det_arrから前フレームの検出結果のみを抽出する
+    pre_dets = np.zeros((4, len(det_arr)))
+    for i in range(len(det_arr)):
+        pre_dets[i] = det_arr[i][-1]
+
+    iou_s = iou_np(det, pre_dets)
+
+    for id, iou in enumerate(iou_s):
+        if iou > thresh:
+            return id
+
+    return -1
+

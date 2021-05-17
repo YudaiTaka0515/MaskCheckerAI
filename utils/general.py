@@ -605,7 +605,7 @@ def save_one_box(xyxy, im, file='image.jpg', gain=1.02, pad=10, square=False, BG
 
 
 def increment_path(path, exist_ok=False, sep='', mkdir=False):
-    # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}3, ... etc.
+    # Increment file or directory path, i.e. runs/exp --> runs/exp{sep}2, runs/exp{sep}新しいタスクを追加します3, ... etc.
     path = Path(path)  # os-agnostic
     if path.exists() and not exist_ok:
         suffix = path.suffix

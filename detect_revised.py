@@ -15,7 +15,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
-from utils.intersection import is_draw
+from utils.intersection import is_draw, is_same_person
 
 
 def detect_face():
@@ -63,6 +63,9 @@ def detect_face():
     if device.type != 'cpu':
         model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
     t0 = time.time()
+
+    det_arr = [[]]
+    score_arr = [[]]
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -81,6 +84,7 @@ def detect_face():
         # Apply Classifier
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
+
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
@@ -115,12 +119,30 @@ def detect_face():
                     classes[i] = cls.item()
 
                 n_human = 0
-                for j, (*xyxy, conf, cls) in enumerate(reversed(det)):
 
+
+                for j, (*xyxy, conf, cls) in enumerate(reversed(det)):
                     if not is_draw(bounding_boxes, scores, j):
                         break
+
+                    # 1回目のdetectionの時, そのまま追加
+                    if i == 0:
+                        det_arr[0].append(bounding_boxes[j])
+                        score_arr[0].append(scores[j])
+                    # 2回目以降 :
                     else:
-                        n_human += 1
+                        det_id = is_same_person(bounding_boxes[j], det_arr, thresh=0.8)
+                        if det_id == -1:
+                            det_arr.append([])
+                            det_arr[-1].append(bounding_boxes[j])
+                            score_arr.append([])
+                            score_arr[-1].append(scores[j])
+                        # 前フレームと被っている←同じ物体だと判断する
+                        else:
+                            det_arr[det_id].append(bounding_boxes[j])
+                            score_arr[det_id].append(scores[j])
+
+                    n_human += 1
 
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -142,6 +164,8 @@ def detect_face():
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
+            print(det_arr)
+            print(score_arr)
 
             # Stream results
             if view_img:
