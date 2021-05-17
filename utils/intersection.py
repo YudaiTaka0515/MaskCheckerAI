@@ -54,9 +54,11 @@ def is_same_person(det, det_arr, thresh=0.8):
     return : 新物体→-1 or 物体のID
     """
     # det_arrから前フレームの検出結果のみを抽出する
-    pre_dets = np.zeros((4, len(det_arr)))
+    pre_dets = np.zeros((len(det_arr), 4))
     for i in range(len(det_arr)):
-        pre_dets[i] = det_arr[i][-1]
+        # print(pre_dets[:, i].shape)
+        # print(det_arr[i][-1].shape)
+        pre_dets[i, :] = det_arr[i][-1]
 
     iou_s = iou_np(det, pre_dets)
 

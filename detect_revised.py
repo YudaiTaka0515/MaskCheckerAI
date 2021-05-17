@@ -113,20 +113,19 @@ def detect_face():
                 scores = np.zeros(len(det))
                 classes = np.zeros(len(det))
                 for j, (*xyxy, conf, cls) in enumerate(reversed(det)):
-                    print("-----------------------")
                     bounding_boxes[j] = np.array([temp.item() for temp in xyxy])
                     scores[i] = conf.item()
                     classes[i] = cls.item()
 
                 n_human = 0
 
-
                 for j, (*xyxy, conf, cls) in enumerate(reversed(det)):
                     if not is_draw(bounding_boxes, scores, j):
                         break
 
                     # 1回目のdetectionの時, そのまま追加
-                    if i == 0:
+                    if len(det_arr[0]) == 0:
+
                         det_arr[0].append(bounding_boxes[j])
                         score_arr[0].append(scores[j])
                     # 2回目以降 :
@@ -164,8 +163,12 @@ def detect_face():
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
-            print(det_arr)
-            print(score_arr)
+            fps = int(1/(t2-t1))
+
+            if i % (fps * 10) == 0 and i > (fps * 10):
+                print("---------------------------")
+                print(i, fps)
+                print("10s")
 
             # Stream results
             if view_img:
